@@ -1,47 +1,92 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+  import Header from './components/Header.vue';
+  import Body from './components/Body.vue';
+  import Graph from './components/Graph.vue';
+  import { tasks } from './tasks';
+  import TaskApi from './TasksAPI';
+
+  function obtainProjectLabels(tasks){
+    let projectLabels = tasks.map(item => item.project)
+    projectLabels = new Set(projectLabels)
+    projectLabels = [...projectLabels.keys()]
+    return projectLabels
+
+  }
+
+  function obtainProjectTimes(projectLabels){
+    let projectTimes = []
+    projectLabels.forEach(element => {
+      let time = 0
+      $tasks.forEach(task =>{
+        if (task.project == element){
+            time += Math.floor(task.duration / 1000)
+        }
+      }
+      )
+      projectTimes.push(time)
+    });
+    return projectTimes
+  }
+
+  onMount(async () => {
+        $tasks = await TaskApi.getTasks();
+    });
+
+    console.log(obtainProjectLabels($tasks))
+    console.log(obtainProjectTimes(obtainProjectLabels($tasks)))
+
+
+
+    $: data = {
+    labels: obtainProjectLabels($tasks),
+    datasets: [
+      {
+        name:"segundos",
+        values: obtainProjectTimes(obtainProjectLabels($tasks))
+      }
+    ]
+    
+    };
+    
+    $: options = {
+    height: 300,
+    colors: ['#009579', '#009579'],
+    axisOptions: {
+      xAxisMode: "tick",
+      yAxisMode: "tick",
+      xIsSeries: true
+    }
+  };
+
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
+  <div class="main">
+    <div class="container">
+      <Header />
+      <Body />
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
     </div>
-  </header>
-
-  <main>
-    <TheWelcome />
-  </main>
+    <Chart
+    :data="data"
+    :options="options"
+    />
+  </div>
 </template>
 
 <style scoped>
-header {
-  line-height: 1.5;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
+.container {
     display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+    justify-content: center;
+    align-items: center;
+    width: 500px;
+    background: #009579;
+  }
+  .main{
+        max-height: 100vh;
   }
 
-  .logo {
-    margin: 0 2rem 0 0;
+  :global(.container *) {
+    font-family: "Quicksand", sans-serif;
   }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-}
 </style>
