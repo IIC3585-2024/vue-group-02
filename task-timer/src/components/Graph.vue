@@ -21,8 +21,8 @@
       }
     },
     setup(props) {
-      const chartData = ref(props.data);
-      const chartOptions = ref(props.options);
+      const chartData = ref(props.data.value);
+      const chartOptions = ref(props.options.value);
   
       return {
         chartData,

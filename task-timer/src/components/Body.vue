@@ -37,7 +37,8 @@
   </template>
   
   <script>
-  import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+  import { ref, onMounted, computed } from 'vue';
+  import { useTaskStore } from '@/db';
   import { v4 as uuidv4 } from 'uuid';
   import Task from './Task.vue';
   import NewTask from './NewTask.vue';
@@ -48,13 +49,12 @@
   export default {
     components: { Task, NewTask },
     setup() {
-      const tasks = ref([]);
+      const tasks = useTaskStore.getTasks();
       const lapse = ref(0);
       const name = ref('');
       const project = ref('');
       const previous = ref(0);
       const duration = ref(0);
-      let unsubscribe = null;
       const changingTask = ref(false);
   
       function handleStartTask(e) {
@@ -73,7 +73,6 @@
   
       function terminate() {
         if (unsubscribe) {
-          unsubscribe();
           unsubscribe = null;
         }
       }
@@ -113,7 +112,7 @@
       }
   
       onMounted(async () => {
-        tasks.value = await TaskApi.getTasks();
+        tasks.value = await useTaskStore.getTasks();
       });
   
       onDestroy(() => {

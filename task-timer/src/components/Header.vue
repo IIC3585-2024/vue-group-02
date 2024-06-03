@@ -8,8 +8,8 @@
 </template>
 
 <script>
-    import { tasks } from '../tasks';
-    const taskCount = tasks.length;
+    import { useTaskStore } from '@/db';
+    const taskCount = useTaskStore.getTasks().length;
     
 </script>
 
