@@ -1,17 +1,9 @@
 <template>
   <div class="body-time">
     <div class="form-group">
-      <NewTask
-        @handleEndTask="handleEndTask"
-        @handlePauseTask="handlePauseTask"
-        @handleStartTask="handleStartTask"
-        :subscription="subscription"
-        :lapsed="lapsed"
-        :time="timer"
-        :name="name"
-        :duration="duration"
-        :project="project"
-      />
+      <NewTask @endTask="handleEndTask" @pauseTask="handlePauseTask" @startTask="handleStartTask"
+        :subscription="subscription" :lapsed="lapsed" :time="timer" v-model:taskName="name" v-model:duration="duration"
+        v-model:project="project" />
     </div>
     <div class="populate-div">
       <PopulateButton @importTasks="handleImportTasks" />
@@ -24,80 +16,79 @@
           <th>Duración</th>
           <th>------</th>
         </tr>
-        <Task
-          v-for="task in tasks"
-          :key="task.id"
-          :id="task.id"
-          :project="task.project"
-          :name="task.name"
-          :duration="task.duration"
-          @handleDeleteTask="handleDeleteTask"
-          @handleEditTask="handleEditTask"
-        />
+        <Task v-for="task in tasks" :key="task.id" :id="task.id" :project="task.project" :name="task.name"
+          :duration="task.duration" @delete="handleDeleteTask" @edit="handleEditTask" />
       </table>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted, computed } from 'vue';
-import { useTaskStore } from '@/lib/db';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import Task from './Task.vue';
-import NewTask from './NewTask.vue';
-import { time, start, stop } from '@/lib/time';
-import PopulateButton from './PopulateButton.vue';
+import { useTasks } from '@/lib/tasks';
+import TaskApi from '@/lib/TasksApi';
+import { useTime } from '@/lib/time';
+import NewTask from '@/components/NewTask.vue';
+import Task from '@/components/Task.vue';
+import PopulateButton from '@/components/PopulateButton.vue';
 
 export default {
-  components: { Task, NewTask, PopulateButton },
+  components: {
+    PopulateButton,
+    Task,
+    NewTask,
+  },
   setup() {
-    const taskStore = useTaskStore();
+    const tasks = useTasks();
+    const time = useTime();
     const lapse = ref(0);
     const name = ref('');
     const project = ref('');
     const previous = ref(0);
     const duration = ref(0);
+    let unsubscribe;
     const changingTask = ref(false);
-    let timerInterval;
+    const timerOn = ref(false);
 
-    let unsubscribe = null;
+    const handleImportTasks = (event) => {
+      const importedTasks = event.detail.exampleTasks;
+      tasks.value = tasks.value.filter(t => !importedTasks.some(task => t.name === task.name && t.project === task.project));
+      tasks.value = [...tasks.value, ...importedTasks];
+      TaskApi.saveTasks(importedTasks);
+    };
 
-    function handleStartTask(e) {
+    const handleStartTask = (e) => {
+      if (timerOn.value) {
+        alert("Ya hay una tarea en curso");
+        return;
+      }
+
       if (!changingTask.value) {
-        if (tasks.value.some(task => task.name === e.detail.name && task.project === e.detail.project)) {
+        if (tasks.value.some(task => task.name === e.detail.name.trim() && task.project === e.detail.project.trim())) {
           alert("Ya existe una tarea con ese nombre en ese proyecto");
           return;
         }
       }
-      timerInterval = setInterval(() => {
-        lapse.value = Date.now() - previous.value;
-      }, 10);
-    }
 
-    function terminate() {
+      timerOn.value = true;
+      unsubscribe = time.subscribe(value => {
+        lapse.value = value + previous.value;
+      });
+    };
+
+    const terminate = () => {
       if (unsubscribe) {
+        unsubscribe();
         unsubscribe = null;
       }
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    }
+      timerOn.value = false;
+    };
 
-    function handleImportTasks(event) {
-      const importedTasks = event.detail.exampleTasks;
-      importedTasks.forEach(task => {
-        tasks = tasks.filter(t => t.name != task.name || t.project != task.project);
-      });
-      tasks = [ ...tasks, ...importedTasks]
-      taskStore.saveTasks(tasks);
-    }
-
-    function handleEndTask(e) {
-      console.log("terminando", lapse.value);
+    const handleEndTask = (e) => {
       tasks.value = tasks.value.filter(task => task.name !== e.detail.name || task.project !== e.detail.project);
-      tasks.value.unshift({ id: uuidv4(), project: e.detail.project, name: e.detail.name, duration: lapse.value });
-      taskStore.saveTasks(tasks.value);
+      tasks.value = [{ id: uuidv4(), project: e.detail.project, name: e.detail.name, duration: lapse.value }, ...tasks.value];
+      TaskApi.saveTasks(tasks.value);
       lapse.value = 0;
       previous.value = 0;
       terminate();
@@ -105,104 +96,113 @@ export default {
       project.value = '';
       changingTask.value = false;
       duration.value = 0;
-    }
+    };
 
-    function handlePauseTask(e) {
+    const handlePauseTask = (e) => {
       previous.value = lapse.value;
       terminate();
-      console.log("pausando", e.detail);
-    }
+    };
 
-    function handleDeleteTask(e) {
+    const handleDeleteTask = (e) => {
       tasks.value = tasks.value.filter(task => task.id !== e.detail.id);
       TaskApi.saveTasks(tasks.value);
-    }
+    };
 
-    function handleEditTask(e) {
+    const handleEditTask = (e) => {
       name.value = e.detail.name;
       project.value = e.detail.project;
       previous.value = e.detail.duration;
       changingTask.value = true;
       handleStartTask(e);
-      console.log("editando", e.detail);
-    }
+    };
 
-    const tasks = computed(() => taskStore.getTasks());
-    const subscription = computed(() => !!unsubscribe);
-    const lapsed = computed(() => !!lapse.value);
-    const timer = computed(() => lapse.value);
+    onMounted(async () => {
+      tasks.value = await TaskApi.getTasks();
+    });
+
+    onUnmounted(() => {
+      terminate();
+    });
+
+    watch([lapse, unsubscribe], () => {
+      subscription.value = !!unsubscribe;
+      lapsed.value = !!lapse.value;
+    });
 
     return {
       tasks,
-      subscription,
-      lapsed,
-      timer,
+      lapse,
       name,
       project,
+      previous,
       duration,
+      timerOn,
+      subscription: ref(false),
+      lapsed: ref(false),
+      timer: lapse,
+      handleImportTasks,
       handleStartTask,
       handleEndTask,
       handlePauseTask,
       handleDeleteTask,
       handleEditTask,
-      handleImportTasks
     };
-  }
+  },
 };
 </script>
 
 <style scoped>
-  .form-group {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    gap: 10px;
-    padding: 0px 80px 0px 80px;
-  }
+.form-group {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  padding: 0px 80px 0px 80px;
+}
 
-  .body-time {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: 10px;
-    background: #009579;
-  }
+.body-time {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  background: #009579;
+}
 
-  .populate-div {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-  }
+.populate-div {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-  .container-tasks {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 5px;
-  }
+.container-tasks {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 5px;
+}
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: center;
-  }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
 
-  th{
-    border: 1px  dashed gray;
-    padding: 10px;
-  }
+th {
+  border: 1px dashed gray;
+  padding: 10px;
+}
 
-  table tr:first-child th {
-    border-top: 0;
-  }
+table tr:first-child th {
+  border-top: 0;
+}
 
-  table tr th:first-child {
-    border-left: 0;
-  }
+table tr th:first-child {
+  border-left: 0;
+}
 
-  table tr th:last-child {
-    border-right: 0;
-  }
+table tr th:last-child {
+  border-right: 0;
+}
 </style>

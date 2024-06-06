@@ -1,26 +1,30 @@
-import { ref, watchEffect } from 'vue';
+import { ref, onUnmounted } from 'vue';
 
-export const time = ref(0);
+export function useTime() {
+  const time = ref(0);
+  let interval = null;
 
-export function start() {
-  const beginning = new Date();
-  const beginningTime = beginning.getTime();
+  const start = () => {
+    const beginningTime = Date.now();
 
-  const intervalId = setInterval(() => {
-    const current = new Date();
-    const currentTime = current.getTime();
-    time.value = currentTime - beginningTime;
-  }, 10);
-}
-
-export function stop() {
-  clearInterval(intervalId);
-  time.value = 0;
-}
-
-watchEffect(() => {
-  start();
-  return () => {
-    stop();
+    interval = setInterval(() => {
+      time.value = Date.now() - beginningTime;
+    }, 10);
   };
-});
+
+  const stop = () => {
+    clearInterval(interval);
+    interval = null;
+    time.value = 0;
+  };
+
+  onUnmounted(() => {
+    stop();
+  });
+
+  return {
+    time,
+    start,
+    stop,
+  };
+}

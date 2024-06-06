@@ -11,6 +11,8 @@
 </template>
 
 <script>
+import { formatTime } from '@/lib/utils';
+
 export default {
   props: {
     id: String,

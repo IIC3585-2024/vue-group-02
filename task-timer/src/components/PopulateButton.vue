@@ -1,5 +1,5 @@
 <template>
-    <button @click="importTasks"></button>
+    <button @click="importTasks">Importar Tareas de Ejemplo</button>
 </template>
 
 <script>
