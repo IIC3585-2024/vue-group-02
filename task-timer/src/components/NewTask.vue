@@ -15,6 +15,8 @@
 </template>
 
 <script>
+import { formatTime } from '@/lib/utils';
+
 export default {
   props: {
     subscription: Boolean,
@@ -29,7 +31,8 @@ export default {
     return {
       localProject: this.project || '',
       localName: this.name || '',
-      localDuration: this.duration || 0
+      localDuration: this.duration || 0,
+      formatTime
     };
   },
   methods: {

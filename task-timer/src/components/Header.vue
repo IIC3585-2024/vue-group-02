@@ -8,8 +8,19 @@
 </template>
 
 <script>
-    import { useTaskStore } from '@/db';
-    const taskCount = useTaskStore.getTasks().length;
+    import { useTaskStore } from '@/lib/db';
+    import { computed } from 'vue';
+
+    export default {
+      setup() {
+        const store = useTaskStore();
+        const taskCount = computed(() => store.getTasks().length);
+        return {
+          taskCount
+        };
+      },
+    }
+    
     
 </script>
 

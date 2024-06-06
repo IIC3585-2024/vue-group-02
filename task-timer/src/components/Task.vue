@@ -18,13 +18,13 @@ export default {
     name: String,
     duration: Number
   },
-  emits: ['triggerDelete', 'triggerEdit'],
+  emits: ['handleDeleteTask', 'handleEditTask'],
   methods: {
     triggerDelete() {
-      this.$emit('triggerDelete', { id: this.id });
+      this.$emit('handleDeleteTask', { id: this.id });
     },
     triggerEdit() {
-      this.$emit('triggerEdit', { id: this.id, project: this.project, name: this.name, duration: this.duration });
+      this.$emit('handleEditTask', { id: this.id, project: this.project, name: this.name, duration: this.duration });
     }
   }
 };
