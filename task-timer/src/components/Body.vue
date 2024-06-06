@@ -1,10 +1,12 @@
 <template>
   <div class="body-time">
+    <h1>Task {{time}}</h1>
     <div class="form-group">
       <NewTask @endTask="handleEndTask" @pauseTask="handlePauseTask" @startTask="handleStartTask"
         :subscription="subscription" :lapsed="lapsed" :time="timer" v-model:taskName="name" v-model:duration="duration"
         v-model:project="project" />
     </div>
+
     <div class="populate-div">
       <PopulateButton @importTasks="handleImportTasks" />
     </div>
@@ -24,10 +26,10 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
-import { useTasks } from '@/lib/tasks';
-import TaskApi from '@/lib/TasksApi';
+import { tasks } from '@/lib/tasks';
+import {useTaskStore} from '@/lib/db';
 import { useTime } from '@/lib/time';
 import NewTask from '@/components/NewTask.vue';
 import Task from '@/components/Task.vue';
@@ -40,41 +42,47 @@ export default {
     NewTask,
   },
   setup() {
-    const tasks = useTasks();
-    const time = useTime();
-    const lapse = ref(0);
+    const db = useTaskStore();
+    const tasks = ref([]);
+    // const time = useTime();
+    const lapsed = ref(0);
     const name = ref('');
     const project = ref('');
     const previous = ref(0);
     const duration = ref(0);
+    const subscription = ref(false);
     let unsubscribe;
     const changingTask = ref(false);
     const timerOn = ref(false);
+    const { time, start, stop } = useTime();
 
     const handleImportTasks = (event) => {
       const importedTasks = event.detail.exampleTasks;
       tasks.value = tasks.value.filter(t => !importedTasks.some(task => t.name === task.name && t.project === task.project));
       tasks.value = [...tasks.value, ...importedTasks];
-      TaskApi.saveTasks(importedTasks);
+      db.saveTasks(importedTasks);
     };
 
     const handleStartTask = (e) => {
-      if (timerOn.value) {
-        alert("Ya hay una tarea en curso");
-        return;
-      }
+      console.log("Comence")
+      // if (timerOn.value) {
+      //   alert("Ya hay una tarea en curso");
+      //   return;
+      // }
 
-      if (!changingTask.value) {
-        if (tasks.value.some(task => task.name === e.detail.name.trim() && task.project === e.detail.project.trim())) {
-          alert("Ya existe una tarea con ese nombre en ese proyecto");
-          return;
-        }
-      }
+      // if (!changingTask.value) {
+      //   if (tasks.value.some(task => task.name === e.detail.name.trim() && task.project === e.detail.project.trim())) {
+      //     alert("Ya existe una tarea con ese nombre en ese proyecto");
+      //     return;
+      //   }
+      // }
 
-      timerOn.value = true;
-      unsubscribe = time.subscribe(value => {
-        lapse.value = value + previous.value;
-      });
+      // timerOn.value = true;
+      // unsubscribe = time.subscribe(value => {
+      //   lapse.value = value + previous.value;
+      // });
+      subscription.value = true
+      start();
     };
 
     const terminate = () => {
@@ -87,9 +95,9 @@ export default {
 
     const handleEndTask = (e) => {
       tasks.value = tasks.value.filter(task => task.name !== e.detail.name || task.project !== e.detail.project);
-      tasks.value = [{ id: uuidv4(), project: e.detail.project, name: e.detail.name, duration: lapse.value }, ...tasks.value];
-      TaskApi.saveTasks(tasks.value);
-      lapse.value = 0;
+      tasks.value = [{ id: uuidv4(), project: e.detail.project, name: e.detail.name, duration: lapsed.value }, ...tasks.value];
+      db.saveTasks(tasks.value);
+      lapsed.value = 0;
       previous.value = 0;
       terminate();
       name.value = '';
@@ -99,13 +107,13 @@ export default {
     };
 
     const handlePauseTask = (e) => {
-      previous.value = lapse.value;
+      previous.value = lapsed.value;
       terminate();
     };
 
     const handleDeleteTask = (e) => {
       tasks.value = tasks.value.filter(task => task.id !== e.detail.id);
-      TaskApi.saveTasks(tasks.value);
+      db.saveTasks(tasks.value);
     };
 
     const handleEditTask = (e) => {
@@ -117,35 +125,34 @@ export default {
     };
 
     onMounted(async () => {
-      tasks.value = await TaskApi.getTasks();
+      tasks.value = await db.getTasks();
     });
 
     onUnmounted(() => {
       terminate();
     });
 
-    watch([lapse, unsubscribe], () => {
+    watch([lapsed, unsubscribe], () => {
       subscription.value = !!unsubscribe;
-      lapsed.value = !!lapse.value;
+      lapsed.value = !!lapsed.value;
     });
 
     return {
       tasks,
-      lapse,
       name,
       project,
       previous,
       duration,
       timerOn,
-      subscription: ref(false),
-      lapsed: ref(false),
-      timer: lapse,
+      subscription,
+      lapsed,
       handleImportTasks,
       handleStartTask,
       handleEndTask,
       handlePauseTask,
       handleDeleteTask,
       handleEditTask,
+      time,
     };
   },
 };

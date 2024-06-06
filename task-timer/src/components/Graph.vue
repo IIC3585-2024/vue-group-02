@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <Bar class="chart" :data="chartData" :options="chartOptions" />
 </template>
   
@@ -82,4 +82,4 @@ export default {
   max-width: 100%;
   margin: 0 auto;
 }
-</style>
+</style> -->

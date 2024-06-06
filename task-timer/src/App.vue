@@ -1,7 +1,7 @@
 <script setup>
   import Header from './components/Header.vue';
   import Body from './components/Body.vue';
-  import Graph from './components/Graph.vue';
+//   import Graph from './components/Graph.vue';
 
 </script>
 
@@ -13,7 +13,7 @@
       <Body />
 
     </div>
-    <Graph />
+    <!-- <Graph /> -->
   </div>
 </template>
 
