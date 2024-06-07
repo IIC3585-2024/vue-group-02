@@ -5,56 +5,83 @@
 <script>
 import { Bar } from 'vue-chartjs'
 import { useTaskStore } from '@/lib/db'
+import { ref, onMounted, computed, watch } from 'vue';
+import { Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale } from 'chart.js';
 
-
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale
+);
 
 export default {
-  extends: Bar,
-  data() {
-    const store = useTaskStore()
-    const tasks = store.getTasks();
+  components: {
+    Bar
+  },
+  setup() {
+    const store = useTaskStore();
+    const tasks = ref([]);
+
+    onMounted(async () => {
+      tasks.value = await store.getTasks();
+    });
 
     function obtainProjectLabels() {
-      let projectLabels = tasks.map(item => item.project)
-      projectLabels = new Set(projectLabels)
-      projectLabels = [...projectLabels.keys()]
-      return projectLabels
+      const projectLabels = tasks.value.map(item => item.project);
+      return [...new Set(projectLabels)];
     }
 
     function obtainProjectTimes(projectLabels) {
-      let projectTimes = []
-      projectLabels.forEach(element => {
-        let time = 0
-        tasks.forEach(task => {
-          if (task.project == element) {
-            const totalSeconds = Math.floor(task.duration / 1000)
-            const totalMinutes = Math.floor(totalSeconds / 60);
-            time += totalMinutes
-          }
-        })
-        projectTimes.push(time)
+      return projectLabels.map(project => {
+        const totalMinutes = tasks.value
+          .filter(task => task.project === project)
+          .reduce((sum, task) => sum + Math.floor(task.duration / 60000), 0);
+        return totalMinutes;
       });
-      return projectTimes
     }
 
-    const chartData = {
-        labels: obtainProjectLabels(),
+    watch(
+      () => store.tasks,
+      (newTasks) => {
+        tasks.value = newTasks;
+      },
+      { deep: true }
+    );
+
+    const chartData = computed(() => {
+      const labels = obtainProjectLabels();
+      const data = obtainProjectTimes(labels);
+
+      return {
+        labels,
         datasets: [
           {
-            name: 'Minutos',
-            values: obtainProjectTimes(obtainProjectLabels())
+            label: 'Minutos',
+            data,
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
           }
         ]
-      }
+      };
+    });
 
     const chartOptions = {
       responsive: true,
-    }
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      }
+    };
 
     return {
       chartData,
       chartOptions
-    }
+    };
   }
 }
 </script>

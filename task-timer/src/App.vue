@@ -3,7 +3,6 @@
   import Body from './components/Body.vue';
   import BarChart from './components/BarChart.vue';
 
-//   import Graph from './components/Graph.vue';
 
 </script>
 
@@ -14,9 +13,10 @@
 			<Header />
 
 			<Body />
-
+			
 		</div>
 		<BarChart />
+		
 	</div>
 </template>
 
