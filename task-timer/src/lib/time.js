@@ -4,11 +4,11 @@ export function useTime() {
   const time = ref(0);
   let interval = null;
 
-  const start = () => {
+  const start = (previusTime = 0) => {
     const beginningTime = Date.now();
 
     interval = setInterval(() => {
-      time.value = Date.now() - beginningTime;
+      time.value = previusTime + Date.now() - beginningTime;
     }, 10);
   };
 
@@ -16,6 +16,11 @@ export function useTime() {
     clearInterval(interval);
     interval = null;
     time.value = 0;
+  };
+
+  const pause = () => {
+    clearInterval(interval);
+    interval = null;
   };
 
   onUnmounted(() => {
@@ -26,5 +31,7 @@ export function useTime() {
     time,
     start,
     stop,
+    pause
+    
   };
 }

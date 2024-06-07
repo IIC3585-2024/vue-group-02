@@ -1,32 +1,39 @@
 <template>
-    <tr class="task" >
-        <td>{{project}}</td>
-        <td>{{name}}</td>
-        <td>{{formatTime(duration)}}</td>
-        <td>
-            <button class="btn btn-primary" @click="triggerEdit">&#9658</button>
-            <button class="btn btn-primary" @click="triggerDelete">X</button>
-        </td>
-    </tr>
+  <tr class="task">
+    <td>{{project}}</td>
+    <td>{{name}}</td>
+    <td>{{ formattedDuration }}</td>
+    <td>
+      <button class="btn btn-primary" @click="triggerEdit">&#9658</button>
+      <button class="btn btn-primary" @click="triggerDelete">X</button>
+    </td>
+  </tr>
 </template>
-
 <script>
 import { formatTime } from '@/lib/utils';
 
 export default {
+  components: {
+    formatTime
+  },
+  computed: {
+    formattedDuration() {
+      return formatTime(this.duration);
+    }
+  },
   props: {
     id: String,
     project: String,
     name: String,
     duration: Number
   },
-  emits: ['handleDeleteTask', 'handleEditTask'],
+  emits: ['delete', 'edit'],
   methods: {
     triggerDelete() {
-      this.$emit('handleDeleteTask', { id: this.id });
+      this.$emit('delete', { id: this.id });
     },
     triggerEdit() {
-      this.$emit('handleEditTask', { id: this.id, project: this.project, name: this.name, duration: this.duration });
+      this.$emit('edit', { id: this.id, project: this.project, name: this.name, duration: this.duration });
     }
   }
 };

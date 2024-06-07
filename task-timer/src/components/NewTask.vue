@@ -1,7 +1,10 @@
 <template>
-  <div>
-    <input type="text" class="form-control" id="projectName" v-model="localProject" placeholder="Proyecto">
-    <input type="text" class="form-control" id="projectDescription" v-model="localName" placeholder="Nombre">
+
+  <div class="new-task">
+    <input type="text" class="form-control" id="projectName" :value="project" @input="updateProject"
+      placeholder="Proyecto">
+    <input type="text" class="form-control" id="projectDescription" :value="name" @input="updateName"
+      placeholder="Nombre">
     <div class="controls">
       <template v-if="subscription">
         <button class="btn btn-primary" @click="handleEndTask">&#x23F9</button>
@@ -32,28 +35,31 @@ export default {
     project: String,
     duration: Number
   },
-  emits: ['startTask', 'pauseTask', 'endTask'],
+  emits: ['startTask', 'pauseTask', 'endTask', 'updateProject', 'updateName'],
   data() {
     return {
       localProject: this.project || '',
-      localName: this.name || '',
+      // localName: this.name || '',
       localDuration: this.duration || 0,
       formatTime
     };
   },
   methods: {
     handleStartTask() {
-      this.$emit('startTask', { project: this.localProject, name: this.localName, duration: this.localduration });
+      this.$emit('startTask', { project: this.project, name: this.name, duration: this.localDuration });
     },
     handlePauseTask() {
-      this.$emit('pauseTask', { project: this.localProject, name: this.localName, duration: this.localduration });
+      this.$emit('pauseTask', { project: this.project, name: this.name, duration: this.localDuration });
     },
     handleEndTask() {
-      this.$emit('endTask', { project: this.localProject, name: this.localName, duration: this.localduration });
-      this.project = '';
-      this.name = '';
-      this.duration = 0;
-    }
+      this.$emit('endTask', { project: this.project, name: this.name, duration: this.localDuration });
+    },
+    updateProject(event) {
+      this.$emit('updateProject', event.target.value);
+    },
+    updateName(event) {
+      this.$emit('updateName', event.target.value);
+    },
   }
 };
 </script>
@@ -65,5 +71,13 @@ export default {
     justify-content: space-between;
     align-items: center;
     gap: 10px;
+  }
+  .new-task {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 20px;
+    background: #009579;
   }
 </style>

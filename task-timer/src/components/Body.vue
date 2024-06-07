@@ -1,12 +1,10 @@
 <template>
   <div class="body-time">
-    <h1>Task {{time}}</h1>
     <div class="form-group">
       <NewTask @endTask="handleEndTask" @pauseTask="handlePauseTask" @startTask="handleStartTask"
-        :subscription="subscription" :lapsed="lapsed" :time="timer" v-model:taskName="name" v-model:duration="duration"
-        v-model:project="project" />
+        :subscription="subscription" :lapsed="lapsed" :time="time" :name="name" :duration="duration" :project="project"
+        @updateProject="updateProject" @updateName="updateName" />
     </div>
-
     <div class="populate-div">
       <PopulateButton @importTasks="handleImportTasks" />
     </div>
@@ -29,7 +27,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { v4 as uuidv4 } from 'uuid';
 import { tasks } from '@/lib/tasks';
-import {useTaskStore} from '@/lib/db';
+import { useTaskStore } from '@/lib/db';
 import { useTime } from '@/lib/time';
 import NewTask from '@/components/NewTask.vue';
 import Task from '@/components/Task.vue';
@@ -41,85 +39,108 @@ export default {
     Task,
     NewTask,
   },
+  methods: {
+    updateProject(newVal) {
+      this.project = newVal;
+    },
+    updateName(newVal) {
+      this.name = newVal;
+    },
+  },
   setup() {
     const db = useTaskStore();
     const tasks = ref([]);
-    // const time = useTime();
-    const lapsed = ref(0);
+    const lapsed = ref(false);
     const name = ref('');
     const project = ref('');
     const previous = ref(0);
     const duration = ref(0);
     const subscription = ref(false);
-    let unsubscribe;
     const changingTask = ref(false);
     const timerOn = ref(false);
-    const { time, start, stop } = useTime();
-
-    const handleImportTasks = (event) => {
-      const importedTasks = event.detail.exampleTasks;
-      tasks.value = tasks.value.filter(t => !importedTasks.some(task => t.name === task.name && t.project === task.project));
-      tasks.value = [...tasks.value, ...importedTasks];
-      db.saveTasks(importedTasks);
-    };
+    const { time, start, stop, pause } = useTime();
 
     const handleStartTask = (e) => {
-      console.log("Comence")
-      // if (timerOn.value) {
-      //   alert("Ya hay una tarea en curso");
-      //   return;
-      // }
+      console.log(timerOn.value)
+      if (timerOn.value) {
+        alert('Ya hay una tarea en curso');
+        return;
+      }
 
-      // if (!changingTask.value) {
-      //   if (tasks.value.some(task => task.name === e.detail.name.trim() && task.project === e.detail.project.trim())) {
-      //     alert("Ya existe una tarea con ese nombre en ese proyecto");
-      //     return;
-      //   }
-      // }
+      if (!changingTask.value){
+        if (tasks.value.filter(task => task.name == e.name.trim() && task.project == e.project.trim()).length > 0){
+          alert("Ya existe una tarea con ese nombre en ese proyecto");
+          return;
+        };
+      }
+      if (e.name.trim() === '' || e.project.trim() === '') {
+        alert('Por favor, ingrese un nombre y un proyecto');
+        return;
+      }
 
-      // timerOn.value = true;
-      // unsubscribe = time.subscribe(value => {
-      //   lapse.value = value + previous.value;
-      // });
+      timerOn.value = true;
       subscription.value = true
-      start();
+      start(previous.value);
     };
 
     const terminate = () => {
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
-      }
+      subscription.value = false;
+      stop();
       timerOn.value = false;
-    };
-
-    const handleEndTask = (e) => {
-      tasks.value = tasks.value.filter(task => task.name !== e.detail.name || task.project !== e.detail.project);
-      tasks.value = [{ id: uuidv4(), project: e.detail.project, name: e.detail.name, duration: lapsed.value }, ...tasks.value];
-      db.saveTasks(tasks.value);
-      lapsed.value = 0;
-      previous.value = 0;
-      terminate();
       name.value = '';
       project.value = '';
+    };
+    
+    const pauseTimer = () => {
+      subscription.value = false;
+      pause();
+      timerOn.value = false;
+    }
+
+    function handleImportTasks(event) {
+      const importedTasks = event.exampleTasks;
+      importedTasks.forEach(task => {
+        tasks.value = tasks.value.filter(t => t.name != task.name || t.project != task.project);
+      });
+      tasks.value = [ ...tasks.value, ...importedTasks]
+      db.saveTasks(tasks.value);
+    }
+
+    const handleEndTask = (e) => {
+      console.log('TERMINE')
+      tasks.value = tasks.value.filter(task => task.name !== e.name || task.project !== e.project);
+
+      tasks.value = [{ id: uuidv4(), project: e.project, name: e.name, duration: time.value }, ...tasks.value];
+      db.saveTasks(tasks.value);
+      lapsed.value = false;
+      previous.value = 0;
+      terminate();
+
       changingTask.value = false;
       duration.value = 0;
     };
 
     const handlePauseTask = (e) => {
-      previous.value = lapsed.value;
-      terminate();
+      lapsed.value = true
+      previous.value = time.value;    
+      pauseTimer();
     };
 
     const handleDeleteTask = (e) => {
-      tasks.value = tasks.value.filter(task => task.id !== e.detail.id);
+      tasks.value = tasks.value.filter(task => task.id !== e.id);
       db.saveTasks(tasks.value);
     };
 
     const handleEditTask = (e) => {
-      name.value = e.detail.name;
-      project.value = e.detail.project;
-      previous.value = e.detail.duration;
+      if (timerOn.value) {
+        alert('Ya hay una tarea en curso');
+        return;
+      }
+      console.log(e)
+      console.log('EDITANDO')
+      name.value = e.name;
+      project.value = e.project;
+      previous.value = e.duration;
       changingTask.value = true;
       handleStartTask(e);
     };
@@ -130,11 +151,6 @@ export default {
 
     onUnmounted(() => {
       terminate();
-    });
-
-    watch([lapsed, unsubscribe], () => {
-      subscription.value = !!unsubscribe;
-      lapsed.value = !!lapsed.value;
     });
 
     return {
@@ -159,6 +175,7 @@ export default {
 </script>
 
 <style scoped>
+
 .form-group {
   display: flex;
   flex-direction: row;
@@ -172,6 +189,7 @@ export default {
   flex-direction: column;
   justify-content: space-between;
   gap: 10px;
+  padding: 20px;
   background: #009579;
 }
 
